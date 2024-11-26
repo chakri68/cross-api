@@ -1,0 +1,132 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Enum for user roles
+enum UserRole {
+  DONOR
+  CENTER_MANAGER
+  ADMIN
+}
+
+// Enum for blood/donation types
+enum DonationType {
+  WHOLE_BLOOD
+  PLATELETS
+  PLASMA
+  DOUBLE_RED_CELLS
+}
+
+// Enum for slot status
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  COMPLETED
+}
+
+// User model
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  role        UserRole @default(DONOR)
+  phoneNumber String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+
+  // Relationships
+  managedCenters DonationCenter[] @relation("CenterManagers")
+  bookings       SlotBooking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Donation Center model
+model DonationCenter {
+  id            String  @id @default(cuid())
+  name          String
+  address       String
+  contactNumber String
+  email         String?
+  description   String?
+
+  // Geographical coordinates for proximity search
+  latitude  Float
+  longitude Float
+
+  // Managers of the center
+  managers User[] @relation("CenterManagers")
+
+  // Available slots
+  availableSlots DonationSlot[]
+
+  specializedIn DonationType[]
+
+  operatingHours Json? // Store operating hours as JSON
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Donation Slot model
+model DonationSlot {
+  id             String         @id @default(cuid())
+  donationCenter DonationCenter @relation(fields: [centerId], references: [id])
+  centerId       String
+
+  // Slot timing
+  startTime DateTime
+  endTime   DateTime
+
+  // Donation type specifics
+  donationType DonationType[]
+
+  // Capacity management
+  totalSlots  Int
+  bookedSlots Int
+  status      SlotStatus @default(AVAILABLE)
+
+  // Bookings for this slot
+  bookings SlotBooking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Booking model
+model SlotBooking {
+  id String @id @default(cuid())
+
+  // Relationships
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  slot   DonationSlot @relation(fields: [slotId], references: [id])
+  slotId String
+
+  // Booking details
+  status BookingStatus
+
+  // Optional medical information
+  medicalNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Booking status enum
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
